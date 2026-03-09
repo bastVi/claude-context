@@ -185,19 +185,20 @@ These settings work in combination with tool parameters - patterns from both sou
 
 #### Sync Controls
 
-This fork disables the most expensive implicit sync paths by default so large repositories do not trigger global sync work on startup or before normal search/index calls.
+This fork changes sync behavior so startup sync is scoped to the active workspace instead of walking every indexed codebase in the global snapshot, and cloud snapshot sync stays disabled by default.
 
 ```bash
-# Disabled by default in this fork
-CONTEXT_MCP_ENABLE_BACKGROUND_SYNC=false
+# Enabled by default in this fork, but scoped to the active workspace
+CONTEXT_MCP_ENABLE_BACKGROUND_SYNC=true
 CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC=false
 ```
 
-Enable them only if you explicitly want that behavior:
+Optional overrides:
 
 ```bash
-CONTEXT_MCP_ENABLE_BACKGROUND_SYNC=true
 CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC=true
+CONTEXT_MCP_WORKSPACE_PATH=/home/bastvi/Projects/LMB
+CONTEXT_SNAPSHOT_PATH=/home/bastvi/.context/snapshots/LMB.json
 ```
 
 ## Usage with MCP Clients

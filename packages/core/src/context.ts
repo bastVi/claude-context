@@ -203,6 +203,10 @@ export class Context {
         this.synchronizers.set(collectionName, synchronizer);
     }
 
+    private async yieldToEventLoop(): Promise<void> {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+
     /**
      * Public wrapper for loadIgnorePatterns private method
      */
@@ -354,12 +358,14 @@ export class Context {
         for (const file of removed) {
             await this.deleteFileChunks(collectionName, file);
             updateProgress(`Removed ${file}`);
+            await this.yieldToEventLoop();
         }
 
         // Handle modified files
         for (const file of modified) {
             await this.deleteFileChunks(collectionName, file);
             updateProgress(`Deleted old chunks for ${file}`);
+            await this.yieldToEventLoop();
         }
 
         // Handle added and modified files
@@ -665,7 +671,8 @@ export class Context {
         const traverseDirectory = async (currentPath: string) => {
             const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
 
-            for (const entry of entries) {
+            for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+                const entry = entries[entryIndex];
                 const fullPath = path.join(currentPath, entry.name);
 
                 // Check if path matches ignore patterns
@@ -680,6 +687,10 @@ export class Context {
                     if (this.supportedExtensions.includes(ext)) {
                         files.push(fullPath);
                     }
+                }
+
+                if ((entryIndex + 1) % 100 === 0) {
+                    await this.yieldToEventLoop();
                 }
             }
         };
@@ -743,6 +754,8 @@ export class Context {
                         } finally {
                             chunkBuffer = []; // Always clear buffer, even on failure
                         }
+
+                        await this.yieldToEventLoop();
                     }
 
                     // Check if chunk limit is reached
@@ -755,6 +768,10 @@ export class Context {
 
                 processedFiles++;
                 onFileProcessed?.(filePath, i + 1, filePaths.length);
+
+                if ((i + 1) % 10 === 0) {
+                    await this.yieldToEventLoop();
+                }
 
                 if (limitReached) {
                     break; // Exit the outer loop (over files)
@@ -777,6 +794,8 @@ export class Context {
                     console.error('[Context] Stack trace:', error.stack);
                 }
             }
+
+            await this.yieldToEventLoop();
         }
 
         return {
@@ -814,6 +833,7 @@ export class Context {
         // Generate embedding vectors
         const chunkContents = chunks.map(chunk => chunk.content);
         const embeddings = await this.embedding.embedBatch(chunkContents);
+        await this.yieldToEventLoop();
 
         if (isHybrid === true) {
             // Create hybrid vector documents
@@ -876,6 +896,8 @@ export class Context {
             // Store to vector database
             await this.vectorDatabase.insert(this.getCollectionName(codebasePath), documents);
         }
+
+        await this.yieldToEventLoop();
     }
 
     /**

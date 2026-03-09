@@ -19,8 +19,9 @@ export class SnapshotManager {
     private codebaseInfoMap: Map<string, CodebaseInfo> = new Map(); // Map of codebase path to complete info
 
     constructor() {
-        // Initialize snapshot file path
-        this.snapshotFilePath = path.join(os.homedir(), '.context', 'mcp-codebase-snapshot.json');
+        const snapshotDir = process.env.CONTEXT_SNAPSHOT_DIR || path.join(os.homedir(), '.context');
+        this.snapshotFilePath = process.env.CONTEXT_SNAPSHOT_PATH || path.join(snapshotDir, 'mcp-codebase-snapshot.json');
+        console.log('[SNAPSHOT-DEBUG] Using snapshot file path:', this.snapshotFilePath);
     }
 
     /**

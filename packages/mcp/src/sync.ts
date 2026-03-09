@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 import { Context, FileSynchronizer } from "@zilliz/claude-context-core";
 import { ContextMcpConfig } from "./config.js";
 import { SnapshotManager } from "./snapshot.js";
@@ -7,16 +8,33 @@ export class SyncManager {
     private context: Context;
     private snapshotManager: SnapshotManager;
     private config: ContextMcpConfig;
+    private workspacePath?: string;
     private isSyncing: boolean = false;
 
-    constructor(context: Context, snapshotManager: SnapshotManager, config: ContextMcpConfig) {
+    constructor(context: Context, snapshotManager: SnapshotManager, config: ContextMcpConfig, workspacePath?: string) {
         this.context = context;
         this.snapshotManager = snapshotManager;
         this.config = config;
+        this.workspacePath = workspacePath ? path.resolve(workspacePath) : undefined;
     }
 
     public isBackgroundSyncEnabled(): boolean {
         return this.config.enableBackgroundSync;
+    }
+
+    private isWithinScope(parentPath: string, childPath: string): boolean {
+        const relative = path.relative(parentPath, childPath);
+        return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+    }
+
+    private isCodebaseInWorkspaceScope(codebasePath: string): boolean {
+        if (!this.workspacePath) {
+            return true;
+        }
+
+        const normalizedCodebasePath = path.resolve(codebasePath);
+        return this.isWithinScope(this.workspacePath, normalizedCodebasePath)
+            || this.isWithinScope(normalizedCodebasePath, this.workspacePath);
     }
 
     public async handleSyncIndex(): Promise<void> {
@@ -24,13 +42,21 @@ export class SyncManager {
         console.log(`[SYNC-DEBUG] handleSyncIndex() called at ${new Date().toISOString()}`);
 
         const indexedCodebases = this.snapshotManager.getIndexedCodebases();
+        const scopedCodebases = indexedCodebases.filter((codebasePath) => this.isCodebaseInWorkspaceScope(codebasePath));
 
         if (indexedCodebases.length === 0) {
             console.log('[SYNC-DEBUG] No codebases indexed. Skipping sync.');
             return;
         }
 
-        console.log(`[SYNC-DEBUG] Found ${indexedCodebases.length} indexed codebases:`, indexedCodebases);
+        console.log(`[SYNC-DEBUG] Found ${indexedCodebases.length} indexed codebases in snapshot`);
+        console.log(`[SYNC-DEBUG] Workspace path for sync scoping: ${this.workspacePath || '[not set]'}`);
+        console.log(`[SYNC-DEBUG] Scoped startup sync to ${scopedCodebases.length} codebases:`, scopedCodebases);
+
+        if (scopedCodebases.length === 0) {
+            console.log('[SYNC-DEBUG] No indexed codebases matched the current workspace. Skipping sync.');
+            return;
+        }
 
         if (this.isSyncing) {
             console.log('[SYNC-DEBUG] Index sync already in progress. Skipping.');
@@ -38,16 +64,16 @@ export class SyncManager {
         }
 
         this.isSyncing = true;
-        console.log(`[SYNC-DEBUG] Starting index sync for all ${indexedCodebases.length} codebases...`);
+        console.log(`[SYNC-DEBUG] Starting index sync for ${scopedCodebases.length} workspace-scoped codebases...`);
 
         try {
             let totalStats = { added: 0, removed: 0, modified: 0 };
 
-            for (let i = 0; i < indexedCodebases.length; i++) {
-                const codebasePath = indexedCodebases[i];
+            for (let i = 0; i < scopedCodebases.length; i++) {
+                const codebasePath = scopedCodebases[i];
                 const codebaseStartTime = Date.now();
 
-                console.log(`[SYNC-DEBUG] [${i + 1}/${indexedCodebases.length}] Starting sync for codebase: '${codebasePath}'`);
+                console.log(`[SYNC-DEBUG] [${i + 1}/${scopedCodebases.length}] Starting sync for codebase: '${codebasePath}'`);
 
                 // Check if codebase path still exists
                 try {

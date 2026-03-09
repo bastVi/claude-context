@@ -3,6 +3,7 @@ import { envManager } from "@zilliz/claude-context-core";
 export interface ContextMcpConfig {
     name: string;
     version: string;
+    workspacePath: string;
     enableBackgroundSync: boolean;
     enableCloudSnapshotSync: boolean;
     // Embedding provider configuration
@@ -142,7 +143,8 @@ export function createMcpConfig(): ContextMcpConfig {
     const config: ContextMcpConfig = {
         name: envManager.get('MCP_SERVER_NAME') || "Context MCP Server",
         version: envManager.get('MCP_SERVER_VERSION') || "1.0.0",
-        enableBackgroundSync: parseBooleanEnv(envManager.get('CONTEXT_MCP_ENABLE_BACKGROUND_SYNC'), false),
+        workspacePath: envManager.get('CONTEXT_MCP_WORKSPACE_PATH') || process.cwd(),
+        enableBackgroundSync: parseBooleanEnv(envManager.get('CONTEXT_MCP_ENABLE_BACKGROUND_SYNC'), true),
         enableCloudSnapshotSync: parseBooleanEnv(envManager.get('CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC'), false),
         // Embedding provider configuration
         embeddingProvider: (envManager.get('EMBEDDING_PROVIDER') as 'OpenAI' | 'VoyageAI' | 'Gemini' | 'Ollama') || 'OpenAI',
@@ -169,6 +171,7 @@ export function logConfigurationSummary(config: ContextMcpConfig): void {
     console.log(`[MCP] 🚀 Starting Context MCP Server`);
     console.log(`[MCP] Configuration Summary:`);
     console.log(`[MCP]   Server: ${config.name} v${config.version}`);
+    console.log(`[MCP]   Workspace Path: ${config.workspacePath}`);
     console.log(`[MCP]   Background Sync: ${config.enableBackgroundSync ? 'enabled' : 'disabled'}`);
     console.log(`[MCP]   Cloud Snapshot Sync: ${config.enableCloudSnapshotSync ? 'enabled' : 'disabled'}`);
     console.log(`[MCP]   Embedding Provider: ${config.embeddingProvider}`);
@@ -213,11 +216,15 @@ Options:
 Environment Variables:
   MCP_SERVER_NAME         Server name
   MCP_SERVER_VERSION      Server version
+  CONTEXT_MCP_WORKSPACE_PATH
+                          Override the workspace path used to scope startup sync (default: process.cwd())
   CONTEXT_MCP_ENABLE_BACKGROUND_SYNC
-                          Enable automatic startup/interval sync for indexed codebases (default: false)
+                          Enable automatic startup/interval sync for indexed codebases in the current workspace (default: true)
   CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC
                           Sync local snapshot from vector DB during search/index calls (default: false)
-  
+  CONTEXT_SNAPSHOT_DIR    Override snapshot directory (default: ~/.context)
+  CONTEXT_SNAPSHOT_PATH   Override snapshot file path for per-project isolation
+
   Embedding Provider Configuration:
   EMBEDDING_PROVIDER      Embedding provider: OpenAI, VoyageAI, Gemini, Ollama (default: OpenAI)
   EMBEDDING_MODEL         Embedding model name (works for all providers)
