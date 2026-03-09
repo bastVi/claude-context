@@ -73,8 +73,8 @@ class ContextMcpServer {
 
         // Initialize managers
         this.snapshotManager = new SnapshotManager();
-        this.syncManager = new SyncManager(this.context, this.snapshotManager);
-        this.toolHandlers = new ToolHandlers(this.context, this.snapshotManager);
+        this.syncManager = new SyncManager(this.context, this.snapshotManager, config);
+        this.toolHandlers = new ToolHandlers(this.context, this.snapshotManager, config);
 
         // Load existing codebase snapshot on startup
         this.snapshotManager.loadCodebaseSnapshot();
@@ -257,8 +257,12 @@ This tool is versatile and can be used before completing various tasks to retrie
         console.log('[SYNC-DEBUG] Server connection established successfully');
 
         // Start background sync after server is connected
-        console.log('[SYNC-DEBUG] Initializing background sync...');
-        this.syncManager.startBackgroundSync();
+        if (this.syncManager.isBackgroundSyncEnabled()) {
+            console.log('[SYNC-DEBUG] Initializing background sync...');
+            this.syncManager.startBackgroundSync();
+        } else {
+            console.log('[SYNC-DEBUG] Background sync disabled by configuration');
+        }
         console.log('[SYNC-DEBUG] MCP server initialization complete');
     }
 }

@@ -1,15 +1,22 @@
 import * as fs from "fs";
 import { Context, FileSynchronizer } from "@zilliz/claude-context-core";
+import { ContextMcpConfig } from "./config.js";
 import { SnapshotManager } from "./snapshot.js";
 
 export class SyncManager {
     private context: Context;
     private snapshotManager: SnapshotManager;
+    private config: ContextMcpConfig;
     private isSyncing: boolean = false;
 
-    constructor(context: Context, snapshotManager: SnapshotManager) {
+    constructor(context: Context, snapshotManager: SnapshotManager, config: ContextMcpConfig) {
         this.context = context;
         this.snapshotManager = snapshotManager;
+        this.config = config;
+    }
+
+    public isBackgroundSyncEnabled(): boolean {
+        return this.config.enableBackgroundSync;
     }
 
     public async handleSyncIndex(): Promise<void> {
@@ -94,6 +101,9 @@ export class SyncManager {
 
                     // Continue with next codebase even if one fails
                 }
+
+                // Yield between repositories so large sync sets do not monopolize the event loop.
+                await new Promise<void>((resolve) => setImmediate(resolve));
             }
 
             const totalElapsed = Date.now() - syncStartTime;
@@ -112,6 +122,11 @@ export class SyncManager {
     }
 
     public startBackgroundSync(): void {
+        if (!this.isBackgroundSyncEnabled()) {
+            console.log('[SYNC-DEBUG] startBackgroundSync() skipped because background sync is disabled');
+            return;
+        }
+
         console.log('[SYNC-DEBUG] startBackgroundSync() called');
 
         // Execute initial sync immediately after a short delay to let server initialize

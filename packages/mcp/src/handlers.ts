@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { Context, COLLECTION_LIMIT_MESSAGE } from "@zilliz/claude-context-core";
+import { ContextMcpConfig } from "./config.js";
 import { SnapshotManager } from "./snapshot.js";
 import { ensureAbsolutePath, truncateContent, trackCodebasePath } from "./utils.js";
 
@@ -10,12 +11,23 @@ export class ToolHandlers {
     private snapshotManager: SnapshotManager;
     private indexingStats: { indexedFiles: number; totalChunks: number } | null = null;
     private currentWorkspace: string;
+    private config: ContextMcpConfig;
 
-    constructor(context: Context, snapshotManager: SnapshotManager) {
+    constructor(context: Context, snapshotManager: SnapshotManager, config: ContextMcpConfig) {
         this.context = context;
         this.snapshotManager = snapshotManager;
+        this.config = config;
         this.currentWorkspace = process.cwd();
         console.log(`[WORKSPACE] Current workspace: ${this.currentWorkspace}`);
+    }
+
+    private async syncIndexedCodebasesFromCloudIfEnabled(): Promise<void> {
+        if (!this.config.enableCloudSnapshotSync) {
+            console.log(`[SYNC-CLOUD] Cloud snapshot sync disabled by configuration`);
+            return;
+        }
+
+        await this.syncIndexedCodebasesFromCloud();
     }
 
     /**
@@ -150,7 +162,7 @@ export class ToolHandlers {
 
         try {
             // Sync indexed codebases from cloud first
-            await this.syncIndexedCodebasesFromCloud();
+            await this.syncIndexedCodebasesFromCloudIfEnabled();
 
             // Validate splitter parameter
             if (splitterType !== 'ast' && splitterType !== 'langchain') {
@@ -417,7 +429,7 @@ export class ToolHandlers {
 
         try {
             // Sync indexed codebases from cloud first
-            await this.syncIndexedCodebasesFromCloud();
+            await this.syncIndexedCodebasesFromCloudIfEnabled();
 
             // Force absolute path resolution - warn if relative path provided
             const absolutePath = ensureAbsolutePath(codebasePath);

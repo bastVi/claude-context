@@ -183,6 +183,23 @@ CUSTOM_IGNORE_PATTERNS=temp/**,*.backup,private/**,uploads/**
 
 These settings work in combination with tool parameters - patterns from both sources will be merged together.
 
+#### Sync Controls
+
+This fork disables the most expensive implicit sync paths by default so large repositories do not trigger global sync work on startup or before normal search/index calls.
+
+```bash
+# Disabled by default in this fork
+CONTEXT_MCP_ENABLE_BACKGROUND_SYNC=false
+CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC=false
+```
+
+Enable them only if you explicitly want that behavior:
+
+```bash
+CONTEXT_MCP_ENABLE_BACKGROUND_SYNC=true
+CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC=true
+```
+
 ## Usage with MCP Clients
 
 <details>

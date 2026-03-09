@@ -3,6 +3,8 @@ import { envManager } from "@zilliz/claude-context-core";
 export interface ContextMcpConfig {
     name: string;
     version: string;
+    enableBackgroundSync: boolean;
+    enableCloudSnapshotSync: boolean;
     // Embedding provider configuration
     embeddingProvider: 'OpenAI' | 'VoyageAI' | 'Gemini' | 'Ollama';
     embeddingModel: string;
@@ -102,6 +104,28 @@ export function getEmbeddingModelForProvider(provider: string): string {
     }
 }
 
+function parseBooleanEnv(value: string | undefined, defaultValue: boolean): boolean {
+    if (value == null) {
+        return defaultValue;
+    }
+
+    switch (value.trim().toLowerCase()) {
+        case '1':
+        case 'true':
+        case 'yes':
+        case 'on':
+            return true;
+        case '0':
+        case 'false':
+        case 'no':
+        case 'off':
+            return false;
+        default:
+            console.warn(`[CONFIG] Invalid boolean environment value '${value}', using default '${defaultValue}'`);
+            return defaultValue;
+    }
+}
+
 export function createMcpConfig(): ContextMcpConfig {
     // Debug: Print all environment variables related to Context
     console.log(`[DEBUG] 🔍 Environment Variables Debug:`);
@@ -112,10 +136,14 @@ export function createMcpConfig(): ContextMcpConfig {
     console.log(`[DEBUG]   OPENAI_API_KEY: ${envManager.get('OPENAI_API_KEY') ? 'SET (length: ' + envManager.get('OPENAI_API_KEY')!.length + ')' : 'NOT SET'}`);
     console.log(`[DEBUG]   MILVUS_ADDRESS: ${envManager.get('MILVUS_ADDRESS') || 'NOT SET'}`);
     console.log(`[DEBUG]   NODE_ENV: ${envManager.get('NODE_ENV') || 'NOT SET'}`);
+    console.log(`[DEBUG]   CONTEXT_MCP_ENABLE_BACKGROUND_SYNC: ${envManager.get('CONTEXT_MCP_ENABLE_BACKGROUND_SYNC') || 'NOT SET'}`);
+    console.log(`[DEBUG]   CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC: ${envManager.get('CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC') || 'NOT SET'}`);
 
     const config: ContextMcpConfig = {
         name: envManager.get('MCP_SERVER_NAME') || "Context MCP Server",
         version: envManager.get('MCP_SERVER_VERSION') || "1.0.0",
+        enableBackgroundSync: parseBooleanEnv(envManager.get('CONTEXT_MCP_ENABLE_BACKGROUND_SYNC'), false),
+        enableCloudSnapshotSync: parseBooleanEnv(envManager.get('CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC'), false),
         // Embedding provider configuration
         embeddingProvider: (envManager.get('EMBEDDING_PROVIDER') as 'OpenAI' | 'VoyageAI' | 'Gemini' | 'Ollama') || 'OpenAI',
         embeddingModel: getEmbeddingModelForProvider(envManager.get('EMBEDDING_PROVIDER') || 'OpenAI'),
@@ -141,6 +169,8 @@ export function logConfigurationSummary(config: ContextMcpConfig): void {
     console.log(`[MCP] 🚀 Starting Context MCP Server`);
     console.log(`[MCP] Configuration Summary:`);
     console.log(`[MCP]   Server: ${config.name} v${config.version}`);
+    console.log(`[MCP]   Background Sync: ${config.enableBackgroundSync ? 'enabled' : 'disabled'}`);
+    console.log(`[MCP]   Cloud Snapshot Sync: ${config.enableCloudSnapshotSync ? 'enabled' : 'disabled'}`);
     console.log(`[MCP]   Embedding Provider: ${config.embeddingProvider}`);
     console.log(`[MCP]   Embedding Model: ${config.embeddingModel}`);
     console.log(`[MCP]   Milvus Address: ${config.milvusAddress || (config.milvusToken ? '[Auto-resolve from token]' : '[Not configured]')}`);
@@ -183,6 +213,10 @@ Options:
 Environment Variables:
   MCP_SERVER_NAME         Server name
   MCP_SERVER_VERSION      Server version
+  CONTEXT_MCP_ENABLE_BACKGROUND_SYNC
+                          Enable automatic startup/interval sync for indexed codebases (default: false)
+  CONTEXT_MCP_ENABLE_CLOUD_SNAPSHOT_SYNC
+                          Sync local snapshot from vector DB during search/index calls (default: false)
   
   Embedding Provider Configuration:
   EMBEDDING_PROVIDER      Embedding provider: OpenAI, VoyageAI, Gemini, Ollama (default: OpenAI)
